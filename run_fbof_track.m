@@ -20,8 +20,8 @@ for iframe = 1 : 100
     keypoints = cat(1, keypoints_cv.pt);
     keypoints = keypoints(keypoints(:, 1) >= gt_rects(iframe, 1) ...
         & keypoints(:, 2) >= gt_rects(iframe, 2) ...
-        & keypoints(:, 1) <= gt_rects(iframe, 1) + gt_rect(iframe, 3) ...
-        & keypoints(:, 2) <= gt_rects(iframe, 2) + gt_rect(iframe, 4), :);
+        & keypoints(:, 1) <= gt_rects(iframe, 1) + gt_rects(iframe, 3) ...
+        & keypoints(:, 2) <= gt_rects(iframe, 2) + gt_rects(iframe, 4), :);
 
     next_pts = [];
     if iframe > 1
@@ -41,7 +41,7 @@ for iframe = 1 : 100
     
     prev_keypoints = keypoints;
     prev_gray = gray;
-    pause(1);
+    pause(0.01);
 end
 
 
