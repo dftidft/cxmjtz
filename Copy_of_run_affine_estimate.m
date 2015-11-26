@@ -4,7 +4,7 @@ addpath 'D:\Project\Matlab\mexopencv'
 % Parameters
 
 % Input
-SEQ_NAME = 'motorrolling';
+SEQ_NAME = 'singer1';
 IMG_DIR = sprintf('D:/Dataset/tracking/seq_bench/%s', SEQ_NAME);
 GT_FILE_NAME = 'groundtruth_rect.txt';
 detector = cv.BRISK();
@@ -12,7 +12,11 @@ detector = cv.BRISK();
 gt_file_path = sprintf('%s/%s', IMG_DIR, GT_FILE_NAME);
 gt_rects = importdata(gt_file_path);
 
-for iframe = 1 : 5
+obj_width = gt_rects(1, 3);
+obj_height = gt_rects(1, 4);
+obj_angle = 0;
+
+for iframe = 1 : 400
     
     % Read input
     img_file_path = sprintf('%s/img/%04d.jpg', IMG_DIR, iframe);
@@ -45,21 +49,26 @@ for iframe = 1 : 5
         orig_ind_point_pairs = nchoosek(ind_tracked_keypoints, 2);
         orig_ind1 = orig_ind_point_pairs(:, 1);
         orig_ind2 = orig_ind_point_pairs(:, 2);
-        orig_dist = prev_keypoints(orig_ind1, :) - prev_keypoints(orig_ind2, :);
-        orig_dist_point_pairs = sqrt(sum(orig_dist .* orig_dist, 2));
-        orig_angle_point_pairs = atan2(orig_dist(:, 2), orig_dist(:, 1));
+        orig_v = prev_keypoints(orig_ind1, :) - prev_keypoints(orig_ind2, :);
+        orig_dist_point_pairs = sqrt(sum(orig_v .* orig_v, 2));
+        orig_angle_point_pairs = atan2(orig_v(:, 2), orig_v(:, 1));
         
         ind_point_pairs = nchoosek((1 : size(of_tracked_keypoints, 1)), 2);
         ind1 = ind_point_pairs(:, 1);
         ind2 = ind_point_pairs(:, 2);
-        dist = of_tracked_keypoints(ind1, :) - of_tracked_keypoints(ind2, :);
-        dist_point_pairs = sqrt(sum(dist .* dist, 2));
-        angle_point_pairs = atan2(dist(:, 2), dist(:, 1));
+        v = of_tracked_keypoints(ind1, :) - of_tracked_keypoints(ind2, :);
+        dist_point_pairs = sqrt(sum(v .* v, 2));
+        angle_point_pairs = atan2(v(:, 2), v(:, 1));
         
-        diff_dist = dist_point_pairs - orig_dist_point_pairs;
+        diff_scale = dist_point_pairs ./ orig_dist_point_pairs;
+        diff_scale = diff_scale(~isnan(diff_scale));
+        % disp(dist_point_pairs(isnan(diff_scale)));
+        % disp(orig_dist_point_pairs(isnan(diff_scale)));
         diff_angle = angle_point_pairs - orig_angle_point_pairs;
-        disp(mean(dist_point_pairs));
-        
+        scale = mean(diff_scale);
+        rotation = mean(diff_angle);
+        center = [mean(of_tracked_keypoints(ind1, :)), mean(of_tracked_keypoints(ind2, :))];
+        fprintf('center: (%f, %f),scale: %f, angle :%f\n', center(1),  center(2), scale, rotation);
         % disp(ind_tracked_keypoints);
     end
 
@@ -68,7 +77,11 @@ for iframe = 1 : 5
     hold on;
     if iframe > 1
         % plot(prev_keypoints(:, 1), prev_keypoints(:, 2), '.', 'Color', [1, 1, 0]);
-        plot(of_tracked_keypoints(:, 1), of_tracked_keypoints(:, 2), '.', 'Color', [0, 1, 1]);
+        % plot(of_tracked_keypoints(:, 1), of_tracked_keypoints(:, 2), '.', 'Color', [0, 1, 1]);
+        obj_width = obj_width * scale;
+        obj_height = obj_height * scale;
+        obj_angle = obj_angle + rotation;
+        DrawRectangle([center(1), center(2), obj_width, obj_height, - obj_angle]);
     end
     if double(get(gcf,'CurrentCharacter')) == 27
         break;
