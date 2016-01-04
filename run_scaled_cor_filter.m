@@ -13,7 +13,7 @@ features.hog_orientations = 9;
 cell_size = 4;
 
 % Input
-SEQ_NAME = 'singer1';
+SEQ_NAME = 'coke';
 IMG_DIR = sprintf('D:/Dataset/tracking/seq_bench/%s', SEQ_NAME);
 GT_FILE_NAME = 'groundtruth_rect.txt';
 detector = cv.BRISK();
@@ -51,9 +51,13 @@ for iframe = 1 : 200
 %         & keypoints(:, 1) <= gt_rects(iframe, 1) + gt_rects(iframe, 3) ...
 %         & keypoints(:, 2) <= gt_rects(iframe, 2) + gt_rects(iframe, 4), :);
     % Detect keypoints in estimated target area
-    keypoints = in_rect(keypoints, pos, target_sz * scale, img_sz);
-    ind_keypoints = 1 : size(keypoints, 1);
-
+    is_in_rect = in_rect(keypoints, pos, target_sz, img_sz);
+    target_keypoints = keypoints(is_in_rect, :);
+    if iframe == 1
+        background_keypoints = keypoints(~is_in_rect, :);
+    end
+    keypoints = target_keypoints;
+    
     % Tracking
     if iframe > 1
         
@@ -120,10 +124,14 @@ for iframe = 1 : 200
     
     if iframe > 1
         delete(rect_h);
+        delete(pts_h);
     end
     % Display groundtruth
     % rect_h = rectangle('Position', gt_rects(iframe, :), 'EdgeColor', 'g');
     rect_h = rectangle('Position', [pos(2) - target_sz(2) * scale/ 2, pos(1) - target_sz(1) * scale/ 2, target_sz(2) * scale, target_sz(1) * scale], 'EdgeColor', 'g');
+    hold on;
+    pts_h = plot(keypoints(:, 1), keypoints(:, 2), '.', 'Color', [1, 1, 0]);
+    hold off;
     
     if double(get(gcf,'CurrentCharacter')) == 27
         break;
