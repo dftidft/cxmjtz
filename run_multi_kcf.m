@@ -13,13 +13,13 @@ features.hog_orientations = 9;
 cell_size = 4;
 
 % Input
-SEQ_NAME = 'couple';
+SEQ_NAME = 'coke';
 IMG_DIR = sprintf('D:/Dataset/tracking/seq_bench/%s', SEQ_NAME);
 GT_FILE_NAME = 'groundtruth_rect.txt';
-detector = cv.BRISK();
 
 gt_file_path = sprintf('%s/%s', IMG_DIR, GT_FILE_NAME);
 gt_rects = importdata(gt_file_path);
+scale = 1;
 
 target_sz = [gt_rects(1, 4), gt_rects(1, 3)];
 pos = floor([gt_rects(1, 2), gt_rects(1, 1)] + target_sz / 2);
@@ -28,28 +28,31 @@ output_sigma = sqrt(prod(target_sz)) * output_sigma_factor / cell_size;
 yf = fft2(gaussian_shaped_labels(output_sigma, floor(window_sz / cell_size)));
 cos_window = hann(size(yf,1)) * hann(size(yf,2))';	
 
-for iframe = 1 : 400
+for iframe = 1 : 300
     
     % Read input
     img_file_path = sprintf('%s/img/%04d.jpg', IMG_DIR, iframe);
-    
-    if ~exist(img_file_path, 'file');
+    if ~exist(img_file_path, 'file')
         break;
     end
-    
     img = imread(img_file_path);
     gray = rgb2gray(img);
-        
+         
     % Initialization
     if iframe == 1
-        
+        col_filter_gray = gray;
+        img_sz = size(gray);
     end
-
+    
     % Tracking
     if iframe > 1
+        
+        % scale change need to be filled
+        col_filter_gray = gray;
+        
         %obtain a subwindow for detection at the position from last
 		%frame, and convert to Fourier domain (its size is unchanged)
-        patch = get_subwindow(gray, pos, window_sz);
+        patch = get_subwindow(col_filter_gray, pos, window_sz);
         zf = fft2(get_features(patch, features, cell_size, cos_window));
         kzf = linear_correlation(zf, model_xf);
         
@@ -71,7 +74,7 @@ for iframe = 1 : 400
     end
     
     %obtain a subwindow for training at newly estimated target position
-    patch = get_subwindow(gray, pos, window_sz);
+    patch = get_subwindow(col_filter_gray, pos, window_sz);
 	xf = fft2(get_features(patch, features, cell_size, cos_window));
     
     %Kernel Ridge Regression, calculate alphas (in Fourier domain)
@@ -87,6 +90,8 @@ for iframe = 1 : 400
         model_alphaf = (1 - interp_factor) * model_alphaf + interp_factor * alphaf;
         model_xf = (1 - interp_factor) * model_xf + interp_factor * xf;
     end
+    
+    pos = pos * scale;
 
     % Display result
     hold on;
@@ -101,7 +106,9 @@ for iframe = 1 : 400
     end
     % Display groundtruth
     % rect_h = rectangle('Position', gt_rects(iframe, :), 'EdgeColor', 'g');
-    rect_h = rectangle('Position', [pos(2) - target_sz(2) / 2, pos(1) - target_sz(1) / 2, target_sz(2), target_sz(1)], 'EdgeColor', 'g');
+    rect_h = rectangle('Position', [pos(2) - target_sz(2) * scale/ 2, pos(1) - target_sz(1) * scale/ 2, target_sz(2) * scale, target_sz(1) * scale], 'EdgeColor', 'g');
+    hold on;
+    hold off;
     
     if double(get(gcf,'CurrentCharacter')) == 27
         break;
@@ -109,9 +116,9 @@ for iframe = 1 : 400
     
     % Save previous data and postprocessing
     if iframe > 1
-        
     end
-
+    
+    prev_keypoints = keypoints;
     prev_gray = gray;
     
     pause(0.001);

@@ -1,4 +1,4 @@
-function x = get_features(im, features, cell_size, cos_window)
+function x = get_hof(prevGray, gray, features, cell_size, cos_window)
 %GET_FEATURES
 %   Extracts dense features from image.
 %
@@ -17,19 +17,16 @@ function x = get_features(im, features, cell_size, cos_window)
 %   Joao F. Henriques, 2014
 %   http://www.isr.uc.pt/~henriques/
 
-	if features.hog,
-		%HOG features, from Piotr's Toolbox
-		x = double(fhog(single(im) / 255, cell_size, features.hog_orientations));
-		x(:,:,end) = [];  %remove all-zeros channel ("truncation feature")
-	end
-	
-	if features.gray,
-		%gray-level (scalar feature)
-		x = double(im) / 255;
-		
-		x = x - mean(x(:));
-	end
-	
+    %HOG features, from Piotr's Toolbox
+    flow = cv.calcOpticalFlowFarneback(prevGray, gray, 'PyrScale', 0.5, 'Levels', 3, 'WinSize', 15, ...
+        'Iterations', 3,'PolyN',  5, 'PolySigma', 1.2, 'Gaussian', 0); 
+    % get optical flow angle from 0 ~ 2pi
+    angle = atan2(flow(:, :, 2), flow(:, :, 1)) + pi;
+    % get optical flow  magnitude
+    mag = sqrt(flow(:, :, 1) .^2 + flow(:, :, 2) .^2);
+    x = double(hof(mag, angle, cell_size, features.hog_orientations));
+    x(:,:,end) = [];  %remove all-zeros channel ("truncation feature")
+
 	%process with cosine window if needed
 	if ~isempty(cos_window),
 		x = bsxfun(@times, x, cos_window);

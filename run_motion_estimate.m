@@ -5,7 +5,7 @@ addpath 'D:\Project\Matlab\mexopencv'
 padding = 10;  %extra area surrounding the target
 
 % Input
-SEQ_NAME = 'tiger1';
+SEQ_NAME = 'bolt';
 IMG_DIR = sprintf('D:/Dataset/tracking/seq_bench/%s', SEQ_NAME);
 GT_FILE_NAME = 'groundtruth_rect.txt';
 detector = cv.BRISK();

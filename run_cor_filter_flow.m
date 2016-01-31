@@ -7,16 +7,16 @@ lambda = 1e-4;  %regularization
 output_sigma_factor = 0.1;  %spatial bandwidth (proportional to target)
 interp_factor = 0.02;
 kernel.sigma = 0.5;
-features.hog = true;
+features.hof = true;
+features.hog = false;
 features.gray = false;
 features.hog_orientations = 9;
-cell_size = 4;
+cell_size = 8;
 
 % Input
-SEQ_NAME = 'couple';
+SEQ_NAME = 'motorrolling';
 IMG_DIR = sprintf('D:/Dataset/tracking/seq_bench/%s', SEQ_NAME);
 GT_FILE_NAME = 'groundtruth_rect.txt';
-detector = cv.BRISK();
 
 gt_file_path = sprintf('%s/%s', IMG_DIR, GT_FILE_NAME);
 gt_rects = importdata(gt_file_path);
@@ -32,25 +32,29 @@ for iframe = 1 : 400
     
     % Read input
     img_file_path = sprintf('%s/img/%04d.jpg', IMG_DIR, iframe);
-    
     if ~exist(img_file_path, 'file');
-        break;
+        break
     end
     
     img = imread(img_file_path);
-    gray = rgb2gray(img);
-        
+    if ndims(img) ==  3
+        gray = rgb2gray(img);
+    else
+        gray = img;
+    end
     % Initialization
     if iframe == 1
         
     end
 
     % Tracking
-    if iframe > 1
+    if iframe > 2
         %obtain a subwindow for detection at the position from last
 		%frame, and convert to Fourier domain (its size is unchanged)
         patch = get_subwindow(gray, pos, window_sz);
-        zf = fft2(get_features(patch, features, cell_size, cos_window));
+        prev_patch = get_subwindow(prev_gray, pos, window_sz);
+        
+        zf = fft2(get_hof(prev_patch, patch, features, cell_size, cos_window));
         kzf = linear_correlation(zf, model_xf);
         
         %calculate response of the classifier at all shifts
@@ -68,24 +72,30 @@ for iframe = 1 : 400
             horiz_delta = horiz_delta - size(zf,2);
         end
         pos = pos + cell_size * [vert_delta - 1, horiz_delta - 1];
+        
     end
     
-    %obtain a subwindow for training at newly estimated target position
-    patch = get_subwindow(gray, pos, window_sz);
-	xf = fft2(get_features(patch, features, cell_size, cos_window));
-    
-    %Kernel Ridge Regression, calculate alphas (in Fourier domain)
-    kf = linear_correlation(xf, xf);
-    alphaf = yf ./ (kf + lambda);   %equation for fast training
+    if iframe > 1
+        %obtain a subwindow for training at newly estimated target position
+        patch = get_subwindow(gray, pos, window_sz);
+        prev_patch = get_subwindow(prev_gray, pos, window_sz);
+        xf = fft2(get_hof(prev_patch, patch, features, cell_size, cos_window));
+
+        %Kernel Ridge Regression, calculate alphas (in Fourier domain)
+        kf = linear_correlation(xf, xf);
+        alphaf = yf ./ (kf + lambda);   %equation for fast training
+    end
     
     %Postprocessing
-    if iframe == 1  %first frame, train with a single image
+    if iframe == 2  %first frame, train with a single image
         model_alphaf = alphaf;
         model_xf = xf;
     else
-        %subsequent frames, interpolate model
-        model_alphaf = (1 - interp_factor) * model_alphaf + interp_factor * alphaf;
-        model_xf = (1 - interp_factor) * model_xf + interp_factor * xf;
+        if iframe > 2
+            %subsequent frames, interpolate model
+            model_alphaf = (1 - interp_factor) * model_alphaf + interp_factor * alphaf;
+            model_xf = (1 - interp_factor) * model_xf + interp_factor * xf;
+        end
     end
 
     % Display result
